@@ -1,67 +1,151 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>界面下的停车场</title>
-    <style>
-        body { font-family: sans-serif; max-width: 300px; margin: 40px auto; font-size: small;}
-        form { display: table ; flex-direction: column; gap: 15px; padding: 25px; border: 0px solid #ccc;  margin-bottom: 20px;}
-        input { font-size: small; padding: 0px; }
-        button { padding: 10px; background-color: #9990b1; color: white; border: none; cursor: pointer; }
-        #results-container .person { border-bottom: 1px solid #eee; padding: 12px 0; }
-    </style>
-</head>
-<body>
+// PROXY_URL: 把这个替换为你部署到 Cloudflare Workers 的完整 URL（不要在前端放置 Airtable token）
+// 例如: const PROXY_URL = 'https://your-worker-name.workers.dev';
+// 如果你只写了主机名（没有协议），下面的规范化代码会尝试补上 https://
+let PROXY_URL = 'https://rectrepair.yueminh2.workers.dev';
+if (typeof PROXY_URL === 'string' && !PROXY_URL.startsWith('http://') && !PROXY_URL.startsWith('https://')) {
+    // 在本地开发中如果需要使用 http，可以把 PROXY_URL 改为 'http://...'
+    PROXY_URL = 'https://' + PROXY_URL;
+}
 
-    <h3>signUPPPPPP</h3>
+// fetch with timeout helper
+function fetchWithTimeout(resource, options = {}, timeout = 15000) {
+    return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+            reject(new Error('Request timeout after ' + timeout + 'ms'));
+        }, timeout);
 
-    <form id="registration-form">
-        <label for="name-input">nnname:</label>
-        <input type="text" id="name-input" required>
+        fetch(resource, options).then(response => {
+            clearTimeout(timer);
+            resolve(response);
+        }).catch(err => {
+            clearTimeout(timer);
+            reject(err);
+        });
+    });
+}
 
-        <label for="email-input">eeeeeemail:</label>
-        <input type="email" id="email-input" required>
+// 获取页面上的元素
+const form = document.getElementById('registration-form');
+const submitButton = document.getElementById('submit-button');
+const resultsContainer = document.getElementById('results-container');
 
-        <button type="submit" id="submit-button">sub-mit-></button>
-    </form>
+if (!form || !submitButton || !resultsContainer) {
+    console.warn('页面元素未找到，请确认 HTML 中有 id 为 registration-form / submit-button / results-container 的元素。');
+}
 
-    <!-- <hr> -->
+/**
+ * 功能1: 提交报名数据到 Airtable
+ */
+form && form.addEventListener('submit', async (event) => {
+    event.preventDefault(); // 阻止表单默认的刷新页面行为
 
-    <h4>already here</h4>
-    <div id="results-container">
-        <p>more.</p>
-    </div> 
-        <div id="image-popup" style="text-align:center; margin-top:20px;">
-            <img id="thank-img" src="./images/html2.JPG" alt="感谢您的提交！" style="max-width:50%; height:auto;">
-        </div>
+    // 获取用户输入的值
+    var nameEl = document.getElementById('name-input');
+    var emailEl = document.getElementById('email-input');
+    var name = nameEl && nameEl.value ? nameEl.value : '';
+    var email = emailEl && emailEl.value ? emailEl.value : '';
 
-        <script src="script.js"></script>
-        <!-- diagnostic: check image load and fetch status -->
-        <script>
-            (function(){
-                const img = document.getElementById('thank-img');
-                if (!img) return console.warn('诊断: 图片元素未找到');
-                const src = img.src;
-                console.log('诊断: 测试图片 src ->', src);
+    if (!name || !email) {
+        alert('请填写姓名和邮箱。');
+        return;
+    }
 
-                // Image onload/onerror
-                const tester = new Image();
-                tester.onload = function(){ console.log('诊断: Image onload 成功'); };
-                tester.onerror = function(){ console.error('诊断: Image onerror 失败'); };
-                tester.src = src;
+    submitButton.disabled = true; // 防止重复提交
+    var originalText = submitButton.textContent;
+    submitButton.textContent = '提交中...';
 
-                // DOM img events
-                img.addEventListener('load', () => console.log('诊断: DOM img load 事件')); 
-                img.addEventListener('error', () => console.error('诊断: DOM img error 事件'));
+    // 前端只发送简单的 name/email 给 Worker，Worker 会把它映射到 Airtable 的字段
+    var payload = { name: name, email: email };
 
-                // 尝试 HEAD 请求获取状态（可跨 origin，但若被阻止会抛错）
-                fetch(src, { method: 'HEAD' }).then(res => {
-                    console.log('诊断: fetch HEAD 状态码', res.status);
-                }).catch(err => {
-                    console.error('诊断: fetch HEAD 错误', err);
-                });
-            })();
-        </script>
-</body>
-</html>
+    try {
+        var response = await fetchWithTimeout(PROXY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }, 15000); // 15s timeout
+
+        if (!response.ok) {
+            var text = '';
+            try { text = await response.text(); } catch (e) {}
+            throw new Error('网络响应错误: ' + response.status + ' ' + response.statusText + ' ' + text);
+        }
+
+    alert('报名成功!');
+    form.reset(); // 清空表单
+    // 显示感谢图片（如果存在）
+    var popup = document.getElementById('image-popup');
+    if (popup) popup.style.display = 'block';
+    await fetchRegistrations(); // 报名成功后立即刷新列表
+    } catch (error) {
+        console.error('提交失败:', error);
+        alert('报名失败，请稍后重试。');
+    } finally {
+        submitButton.disabled = false;
+        submitButton.textContent = originalText || '提交报名';
+    }
+});
+
+/**
+ * 功能2: 从 Airtable 获取报名列表并显示在页面上
+ */
+async function fetchRegistrations() {
+    resultsContainer.innerHTML = '<p>正在加载...</p>'; // 显示加载状态
+
+    try {
+        // GET 请求通过 Worker 代理（Worker 会在后端和 Airtable 通信）
+        var response = await fetch(PROXY_URL, {
+            method: 'GET'
+        });
+
+        if (!response.ok) {
+            var text = '';
+            try { text = await response.text(); } catch (e) {}
+            throw new Error('网络响应错误: ' + response.status + ' ' + response.statusText + ' ' + text);
+        }
+
+        var responseData = await response.json();
+        var records = responseData.records || [];
+
+        // 渲染列表
+        resultsContainer.innerHTML = '';
+        if (records.length === 0) {
+            resultsContainer.innerHTML = '<p>还没有人报名。</p>';
+        } else {
+            records.forEach(function(person) {
+                var personDiv = document.createElement('div');
+                personDiv.className = 'person';
+                var name = (person.fields && person.fields.Name) ? person.fields.Name : '(无名)';
+                var email = (person.fields && person.fields.Email) ? person.fields.Email : '(无)';
+                personDiv.textContent = '姓名: ' + name + ', 邮箱: ' + email;
+                resultsContainer.appendChild(personDiv);
+            });
+        }
+    } catch (error) {
+        console.error('加载列表失败:', error);
+        resultsContainer.innerHTML = '<p>failfail 列表, refresh!</p>';
+    }
+}
+
+
+document.getElementById('myForm').addEventListener('submit', async function(event) {
+  event.preventDefault();
+
+  // (这里的 fetch 部分和之前一样，发送数据到 Worker)
+  const response = await fetch('https://rectrepair.yueminh2.workers.dev', {
+    // ... method, headers, body ...
+  });
+
+  const result = await response.json();
+
+  // 如果后端返回 { success: true }
+  if (result.success) {
+    // 直接把准备好的图片容器显示出来
+    document.getElementById('image-popup').style.display = 'block';
+  } else {
+    alert('提交失败，请重试！');
+  }
+});
+
+// 页面加载完成后，立即执行一次获取列表的函数
+window.addEventListener('load', fetchRegistrations);
+
