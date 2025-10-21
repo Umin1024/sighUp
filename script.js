@@ -129,5 +129,5 @@ async function fetchRegistrations() {
 
 
 // 页面加载完成后，立即执行一次获取列表的函数
-window.addEventListener('load', fetchRegistrations);
+//window.addEventListener('load', fetchRegistrations);
 
