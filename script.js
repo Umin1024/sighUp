@@ -127,24 +127,6 @@ async function fetchRegistrations() {
 }
 
 
-document.getElementById('myForm').addEventListener('submit', async function(event) {
-  event.preventDefault();
-
-  // (这里的 fetch 部分和之前一样，发送数据到 Worker)
-  const response = await fetch('https://rectrepair.yueminh2.workers.dev', {
-    // ... method, headers, body ...
-  });
-
-  const result = await response.json();
-
-  // 如果后端返回 { success: true }
-  if (result.success) {
-    // 直接把准备好的图片容器显示出来
-    document.getElementById('image-popup').style.display = 'block';
-  } else {
-    alert('提交失败，请重试！');
-  }
-});
 
 // 页面加载完成后，立即执行一次获取列表的函数
 window.addEventListener('load', fetchRegistrations);
