@@ -14,17 +14,27 @@
         }
 
         form {
-            display: table;
+            display: flexbox;
             flex-direction: column;
-            gap: 15px;
-            padding: 25px;
+            gap: 0px; /* we control spacing per row */
+            padding: 0px;
             border: 0px solid #ccc;
-            margin-bottom: 20px;
+            margin-bottom: 50px;
+        }
+
+        /* each label+input pair as a row */
+        .form-row {
+            margin-bottom: 18px; /* distance from this input to next label */
+        }
+        .form-row label {
+            display: block;
+            margin-bottom: 4px; /* label -> input gap (small) */
         }
 
         input {
             font-size: small;
-            padding: 0px;
+            padding: 0px 8px;
+            margin: 0; /* reset default */
         }
 
         button {
@@ -44,26 +54,30 @@
 
 <body>
 
-    <h3>signUPPPPPP</h3>
+    <h3>想要预约入库</h3>
 
     <form id="registration-form">
-        <label for="name-input">nnname:</label>
-        <input type="text" id="name-input" required>
+        <div class="form-row">
+            <label for="name-input">nnname:</label>
+            <input type="text" id="name-input" required>
+        </div>
 
-        <label for="email-input">eeeeeemail:</label>
-        <input type="email" id="email-input" required>
+        <div class="form-row">
+            <label for="email-input">eeeeeemail:</label>
+            <input type="email" id="email-input" required>
+        </div>
 
-        <button type="submit" id="submit-button">sub-mit-></button>
+        <button type="submit" id="submit-button">入库 >>></button>
     </form>
 
     <!-- <hr> -->
 
-    <h4>already here</h4>
+    <h4>看看谁停好了</h4>
     <div id="results-container">
-        <p>more.</p>
+        <p>(但你得先专心停车)</p>
     </div>
     <div id="image-popup" style="display:none; text-align:center; margin-top:20px;">
-        <img id="thank-img" src="./images/html2.JPG" alt="感谢您的提交！" style="max-width:50%; height:auto;">
+        <img id="thank-img" src="./images/html2.JPG" alt="Welcome to the parking lot！" style="max-width:50%; height:auto;">
     </div>
 
     <script src="script.js"></script>
